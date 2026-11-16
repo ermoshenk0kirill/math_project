@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сечения многогранников — интерактивный образовательный ресурс</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/index.css">
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#111832; --panel:rgba(255,255,255,.045);
+    --border:rgba(255,255,255,.1); --text:#e8edf7; --muted:#9aa7c0;
+    --accent:#fbbf24; --accent2:#38bdf8; --accent3:#a78bfa; --ok:#34d399; --bad:#f87171;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter',system-ui,sans-serif; color:var(--text);
+    background:radial-gradient(1200px 700px at 80% -10%, #1b2a5e 0%, transparent 60%),
+               radial-gradient(900px 600px at -10% 110%, #2a1a4e 0%, transparent 55%),
+               var(--bg);
+    min-height:100vh;
+  }
+  header{
+    padding:34px 24px 18px; text-align:center; position:relative;
+  }
+  header .kicker{
+    display:inline-block; font-size:12px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--accent2); border:1px solid rgba(56,189,248,.35); border-radius:999px;
+    padding:6px 16px; margin-bottom:14px; background:rgba(56,189,248,.08);
+  }
+  header h1{
+    font-size:clamp(24px,4vw,40px); font-weight:800; letter-spacing:-.02em;
+    background:linear-gradient(90deg,#fff 20%,var(--accent) 60%,var(--accent2));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  header p{color:var(--muted); margin-top:10px; font-size:15px; max-width:720px; margin-inline:auto}
+
+  nav.tabs{
+    display:flex; justify-content:center; gap:8px; padding:16px 16px 6px; position:sticky; top:0;
+    z-index:50; backdrop-filter:blur(12px);
+    background:linear-gradient(180deg, rgba(11,16,32,.92), rgba(11,16,32,.7));
+    border-bottom:1px solid var(--border);
+  }
+  nav.tabs button{
+    font-family:inherit; font-size:14px; font-weight:600; color:var(--muted);
+    background:transparent; border:1px solid transparent; border-radius:999px;
+    padding:10px 22px; cursor:pointer; transition:.25s;
+  }
+  nav.tabs button:hover{color:var(--text)}
+  nav.tabs button.active{
+    color:#0b1020; background:linear-gradient(90deg,var(--accent),#f59e0b);
+    box-shadow:0 6px 24px rgba(251,191,36,.35);
+  }
+  main{max-width:1240px; margin:0 auto; padding:22px 18px 60px}
+  .page{display:none; animation:fade .4s ease}
+  .page.active{display:block}
+  @keyframes fade{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
+
+  /* ============ MODEL PAGE ============ */
+  .model-wrap{display:grid; grid-template-columns:1fr 330px; gap:18px}
+  @media(max-width:980px){.model-wrap{grid-template-columns:1fr}}
+  .viewer{
+    position:relative; border:1px solid var(--border); border-radius:18px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(23,32,64,.55), rgba(10,14,30,.55));
+    min-height:560px;
+  }
+  #scene{position:absolute; inset:0}
+  .viewer .hint{
+    position:absolute; left:14px; bottom:12px; font-size:12px; color:var(--muted);
+    background:rgba(10,14,30,.6); padding:6px 12px; border-radius:8px; border:1px solid var(--border);
+    pointer-events:none;
+  }
+  .section-badge{
+    position:absolute; top:14px; left:14px; padding:10px 16px; border-radius:14px;
+    background:rgba(10,14,30,.72); border:1px solid var(--border); backdrop-filter:blur(6px);
+    min-width:200px;
+  }
+  .section-badge .t{font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:var(--muted)}
+  .section-badge .v{font-size:18px; font-weight:700; color:var(--accent); margin-top:2px}
+  .section-badge .s{font-size:12px; color:var(--muted); margin-top:4px; line-height:1.5}
+
+  .panel{
+    border:1px solid var(--border); border-radius:18px; background:var(--panel);
+    padding:18px; margin-bottom:16px;
+  }
+  .panel h3{
+    font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
+    margin-bottom:12px;
+  }
+  .solids{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .solids button{
+    font-family:inherit; font-size:13px; font-weight:600; color:var(--text);
+    background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:12px;
+    padding:10px 8px; cursor:pointer; transition:.2s;
+  }
+  .solids button:hover{background:rgba(56,189,248,.15); border-color:rgba(56,189,248,.4)}
+  .solids button.active{
+    background:linear-gradient(135deg,rgba(56,189,248,.28),rgba(167,139,250,.28));
+    border-color:var(--accent2); box-shadow:0 0 0 1px rgba(56,189,248,.35), 0 6px 18px rgba(56,189,248,.18);
+  }
+  .slider-row{margin-bottom:16px}
+  .slider-row label{display:flex; justify-content:space-between; font-size:13px; color:var(--text); margin-bottom:8px}
+  .slider-row label span{color:var(--accent2); font-variant-numeric:tabular-nums}
+  input[type=range]{
+    width:100%; -webkit-appearance:none; appearance:none; height:6px; border-radius:6px;
+    background:linear-gradient(90deg,var(--accent2),var(--accent3)); outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    background:#fff; border:3px solid var(--accent2); box-shadow:0 2px 10px rgba(0,0,0,.5); cursor:grab;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:#fff; border:3px solid var(--accent2); cursor:grab;
+  }
+  .toggles{display:flex; flex-direction:column; gap:10px}
+  .toggle{display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; user-select:none}
+  .toggle input{display:none}
+  .toggle .sw{
+    width:40px; height:22px; border-radius:999px; background:rgba(255,255,255,.15);
+    position:relative; transition:.25s; flex:0 0 auto;
+  }
+  .toggle .sw::after{
+    content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%;
+    background:#fff; transition:.25s;
+  }
+  .toggle input:checked + .sw{background:var(--accent)}
+  .toggle input:checked + .sw::after{left:21px}
+  .btn-row{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .btn{
+    font-family:inherit; font-size:13px; font-weight:600; border-radius:12px; padding:10px;
+    cursor:pointer; transition:.2s; border:1px solid var(--border); color:var(--text);
+    background:rgba(255,255,255,.05);
+  }
+  .btn:hover{background:rgba(255,255,255,.12)}
+  .btn.primary{
+    background:linear-gradient(90deg,var(--accent),#f59e0b); color:#0b1020; border:none;
+    box-shadow:0 6px 18px rgba(251,191,36,.3);
+  }
+  .btn.primary:hover{filter:brightness(1.1)}
+  .btn.wide{grid-column:1/-1}
+  .legend{display:flex; flex-direction:column; gap:8px; font-size:12.5px; color:var(--muted)}
+  .legend .item{display:flex; align-items:center; gap:10px}
+  .legend .dot{width:14px; height:14px; border-radius:5px; flex:0 0 auto}
+
+  /* ============ THEORY PAGE ============ */
+  .hero{
+    border:1px solid var(--border); border-radius:20px; padding:28px;
+    background:linear-gradient(120deg, rgba(56,189,248,.12), rgba(167,139,250,.12), rgba(251,191,36,.08));
+    margin-bottom:22px;
+  }
+  .hero h2{font-size:clamp(20px,3vw,28px); margin-bottom:10px}
+  .hero p{color:var(--muted); font-size:15px; line-height:1.7; max-width:820px}
+  .hero .def{
+    margin-top:14px; padding:14px 18px; border-left:4px solid var(--accent);
+    background:rgba(10,14,30,.5); border-radius:0 12px 12px 0; font-size:14.5px; line-height:1.65;
+  }
+  .card-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; margin-bottom:22px}
+  .card{
+    border:1px solid var(--border); border-radius:18px; background:var(--panel);
+    padding:18px; transition:.25s;
+  }
+  .card:hover{transform:translateY(-3px); border-color:rgba(251,191,36,.4); box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  .card h4{font-size:15px; margin:12px 0 6px; color:var(--accent)}
+  .card p{font-size:13px; color:var(--muted); line-height:1.6}
+  .card svg{width:100%; height:auto; display:block; border-radius:10px; background:rgba(10,14,30,.45)}
+  h2.sec{font-size:22px; margin:30px 0 14px; display:flex; align-items:center; gap:10px}
+  h2.sec::before{content:''; width:8px; height:24px; border-radius:4px; background:linear-gradient(180deg,var(--accent),var(--accent2))}
+  .steps{display:flex; flex-direction:column; gap:12px; counter-reset:step}
+  .step{
+    display:flex; gap:14px; align-items:flex-start; border:1px solid var(--border);
+    border-radius:14px; padding:14px 16px; background:var(--panel);
+  }
+  .step .n{
+    counter-increment:step; flex:0 0 auto; width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px;
+    color:#0b1020; background:linear-gradient(135deg,var(--accent),#f59e0b);
+  }
+  .step .n::before{content:counter(step)}
+  .step b{display:block; font-size:14px; margin-bottom:3px}
+  .step span{font-size:13px; color:var(--muted); line-height:1.55}
+  table.facts{width:100%; border-collapse:collapse; font-size:13.5px; border:1px solid var(--border); border-radius:14px; overflow:hidden}
+  table.facts th, table.facts td{padding:12px 14px; text-align:left; border-bottom:1px solid var(--border)}
+  table.facts th{background:rgba(56,189,248,.12); color:var(--accent2); font-size:12px; text-transform:uppercase; letter-spacing:.1em}
+  table.facts tr:last-child td{border-bottom:none}
+  table.facts td:first-child{font-weight:600}
+  .tip{
+    margin-top:22px; border:1px dashed rgba(251,191,36,.5); border-radius:16px;
+    padding:18px 20px; background:rgba(251,191,36,.06); font-size:14px; line-height:1.7; color:#f3e3bd;
+  }
+
+  /* ============ QUIZ ============ */
+  .quiz-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px}
+  .quiz-head h2{font-size:22px}
+  .score-pill{
+    font-size:14px; font-weight:700; padding:8px 18px; border-radius:999px;
+    background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--muted);
+  }
+  .q{
+    border:1px solid var(--border); border-radius:16px; background:var(--panel);
+    padding:18px 20px; margin-bottom:14px; transition:.25s;
+  }
+  .q.correct{border-color:rgba(52,211,153,.6); background:rgba(52,211,153,.07)}
+  .q.wrong{border-color:rgba(248,113,113,.6); background:rgba(248,113,113,.07)}
+  .q .qt{font-size:15px; font-weight:700; margin-bottom:12px}
+  .q .qt .num{color:var(--accent); margin-right:8px}
+  .opts{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  @media(max-width:640px){.opts{grid-template-columns:1fr}}
+  .opts label{
+    display:flex; gap:10px; align-items:center; font-size:13.5px; padding:10px 14px;
+    border:1px solid var(--border); border-radius:12px; cursor:pointer; transition:.2s;
+    background:rgba(255,255,255,.03);
+  }
+  .opts label:hover{border-color:var(--accent2)}
+  .opts input{accent-color:var(--accent); width:16px; height:16px; flex:0 0 auto}
+  .q .expl{
+    display:none; margin-top:12px; font-size:13px; line-height:1.6; color:var(--muted);
+    border-top:1px dashed var(--border); padding-top:10px;
+  }
+  .q.answered .expl{display:block}
+  .q .mark{float:right; font-weight:800; font-size:13px}
+  .q.correct .mark{color:var(--ok)} .q.wrong .mark{color:var(--bad)}
+
+  footer{
+    text-align:center; padding:26px 16px 34px; color:var(--muted); font-size:12.5px;
+    border-top:1px solid var(--border); margin-top:30px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="kicker">Индивидуальный проект · 10 класс · Геометрия</span>
+  <h1>Сечения многогранников</h1>
+  <p>Интерактивный образовательный ресурс для наглядного изучения сечений куба, призмы, пирамиды и других многогранников: вращайте фигуру, двигайте секущую плоскость и исследуйте результат в реальном времени.</p>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-page="model">🧊 3D-модель</button>
+  <button class="tab-btn" data-page="theory">📖 Теория</button>
+  <button class="tab-btn" data-page="quiz">✍️ Проверь себя</button>
+</nav>
+
+<main>
+
+<!-- ================= MODEL ================= -->
+<section id="page-model" class="page active">
+  <div class="model-wrap">
+    <div class="viewer">
+      <div id="scene"></div>
+      <div class="section-badge">
+        <div class="t">Текущее сечение</div>
+        <div class="v" id="secName">—</div>
+        <div class="s" id="secInfo">—</div>
+      </div>
+      <div class="hint">🖱 Вращение — левая кнопка · масштаб — колесо · перемещение — правая кнопка</div>
+    </div>
+
+    <aside>
+      <div class="panel">
+        <h3>Многогранник</h3>
+        <div class="solids" id="solidBtns"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Секущая плоскость</h3>
+        <div class="slider-row">
+          <label>Наклон (θ) <span id="valTheta">55°</span></label>
+          <input type="range" id="slTheta" min="0" max="180" step="1" value="55">
+        </div>
+        <div class="slider-row">
+          <label>Поворот (φ) <span id="valPhi">45°</span></label>
+          <input type="range" id="slPhi" min="0" max="360" step="1" value="45">
+        </div>
+        <div class="slider-row">
+          <label>Положение плоскости <span id="valOff">50%</span></label>
+          <input type="range" id="slOff" min="0" max="1000" step="1" value="500">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnCenter">В центр</button>
+          <button class="btn" id="btnRandom">🎲 Случайно</button>
+          <button class="btn wide primary" id="btnAnimate">▶ Анимировать плоскость</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Отображение</h3>
+        <div class="toggles">
+          <label class="toggle">Показывать обе половины<input type="checkbox" id="tgHalves" checked><span class="sw"></span></label>
+          <label class="toggle">Показывать плоскость<input type="checkbox" id="tgPlane" checked><span class="sw"></span></label>
+          <label class="toggle">Подписи вершин<input type="checkbox" id="tgLabels" checked><span class="sw"></span></label>
+          <label class="toggle">Автовращение фигуры<input type="checkbox" id="tgSpin"><span class="sw"></span></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Обозначения</h3>
+        <div class="legend">
+          <div class="item"><span class="dot" style="background:rgba(56,189,248,.7)"></span> Верхняя половина тела</div>
+          <div class="item"><span class="dot" style="background:rgba(167,139,250,.7)"></span> Нижняя половина тела</div>
+          <div class="item"><span class="dot" style="background:var(--accent)"></span> Многоугольник сечения</div>
+          <div class="item"><span class="dot" style="background:rgba(255,255,255,.85)"></span> Рёбра и вершины</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= THEORY ================= -->
+<section id="page-theory" class="page">
+  <div class="hero">
+    <h2>Что такое сечение многогранника?</h2>
+    <p>Изучение сечений — одна из ключевых тем стереометрии. Она развивает пространственное мышление и часто встречается на экзаменах (задачи на построение сечения и вычисление его площади).</p>
+    <div class="def"><b>Сечением многогранника</b> называется многоугольник, образованный отрезками, по которым секущая плоскость пересекает грани многогранника. Вершины этого многоугольника — точки пересечения плоскости с рёбрами, а стороны лежат в гранях.</div>
+  </div>
+
+  <h2 class="sec">Сечения куба: от треугольника до шестиугольника</h2>
+  <div class="card-grid">
+    <div class="card">
+      <svg viewBox="0 0 175 155">
+        <g stroke="#7dd3fc" stroke-width="1.6" fill="none" opacity=".85">
+          <line x1="30" y1="130" x2="65" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="145" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="65" y2="25" stroke-dasharray="4 4"/>
+          <rect x="30" y="50" width="80" height="80"/>
+          <rect x="65" y="25" width="80" height="80"/>
+          <line x1="110" y1="130" x2="145" y2="105"/><line x1="110" y1="50" x2="145" y2="25"/><line x1="30" y1="50" x2="65" y2="25"/>
+        </g>
+        <polygon points="70,130 110,90 127.5,117.5" fill="rgba(251,146,60,.35)" stroke="#fb923c" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="70" cy="130" r="3" fill="#fb923c"/><circle cx="110" cy="90" r="3" fill="#fb923c"/><circle cx="127.5" cy="117.5" r="3" fill="#fb923c"/>
+      </svg>
+      <h4>Треугольник</h4>
+      <p>Плоскость проходит через три вершины, лежащие на рёбрах, выходящих из одной вершины куба. Если взять середины трёх таких рёбер — получится <b>равносторонний треугольник</b>.</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 175 155">
+        <g stroke="#7dd3fc" stroke-width="1.6" fill="none" opacity=".85">
+          <line x1="30" y1="130" x2="65" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="145" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="65" y2="25" stroke-dasharray="4 4"/>
+          <rect x="30" y="50" width="80" height="80"/>
+          <rect x="65" y="25" width="80" height="80"/>
+          <line x1="110" y1="130" x2="145" y2="105"/><line x1="110" y1="50" x2="145" y2="25"/><line x1="30" y1="50" x2="65" y2="25"/>
+        </g>
+        <polygon points="70,130 105,105 105,25 70,50" fill="rgba(251,146,60,.35)" stroke="#fb923c" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="70" cy="130" r="3" fill="#fb923c"/><circle cx="105" cy="105" r="3" fill="#fb923c"/><circle cx="105" cy="25" r="3" fill="#fb923c"/><circle cx="70" cy="50" r="3" fill="#fb923c"/>
+      </svg>
+      <h4>Четырёхугольник</h4>
+      <p>Плоскость пересекает четыре грани: получаются <b>квадрат, прямоугольник, параллелограмм, ромб или трапеция</b> — в зависимости от наклона.</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 175 155">
+        <g stroke="#7dd3fc" stroke-width="1.6" fill="none" opacity=".85">
+          <line x1="30" y1="130" x2="65" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="145" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="65" y2="25" stroke-dasharray="4 4"/>
+          <rect x="30" y="50" width="80" height="80"/>
+          <rect x="65" y="25" width="80" height="80"/>
+          <line x1="110" y1="130" x2="145" y2="105"/><line x1="110" y1="50" x2="145" y2="25"/><line x1="30" y1="50" x2="65" y2="25"/>
+        </g>
+        <polygon points="110,130 133,33 105,25 65,65 53,113" fill="rgba(251,146,60,.35)" stroke="#fb923c" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="110" cy="130" r="3" fill="#fb923c"/><circle cx="133" cy="33" r="3" fill="#fb923c"/><circle cx="105" cy="25" r="3" fill="#fb923c"/><circle cx="65" cy="65" r="3" fill="#fb923c"/><circle cx="53" cy="113" r="3" fill="#fb923c"/>
+      </svg>
+      <h4>Пятиугольник</h4>
+      <p>Плоскость пересекает пять из шести граней куба. Пятиугольное сечение проходит через одну вершину куба и четыре ребра.</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 175 155">
+        <g stroke="#7dd3fc" stroke-width="1.6" fill="none" opacity=".85">
+          <line x1="30" y1="130" x2="65" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="145" y2="105" stroke-dasharray="4 4"/>
+          <line x1="65" y1="105" x2="65" y2="25" stroke-dasharray="4 4"/>
+          <rect x="30" y="50" width="80" height="80"/>
+          <rect x="65" y="25" width="80" height="80"/>
+          <line x1="110" y1="130" x2="145" y2="105"/><line x1="110" y1="50" x2="145" y2="25"/><line x1="30" y1="50" x2="65" y2="25"/>
+        </g>
+        <polygon points="70,130 127.5,117.5 145,65 105,25 47.5,37.5 30,90" fill="rgba(251,146,60,.35)" stroke="#fb923c" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="70" cy="130" r="3" fill="#fb923c"/><circle cx="127.5" cy="117.5" r="3" fill="#fb923c"/><circle cx="145" cy="65" r="3" fill="#fb923c"/><circle cx="105" cy="25" r="3" fill="#fb923c"/><circle cx="47.5" cy="37.5" r="3" fill="#fb923c"/><circle cx="30" cy="90" r="3" fill="#fb923c"/>
+      </svg>
+      <h4>Шестиугольник</h4>
+      <p>Плоскость пересекает все шесть граней. Если она проходит через середины шести рёбер куба (через центр), сечение — <b>правильный шестиугольник</b>.</p>
+    </div>
+  </div>
+
+  <h2 class="sec">Сечения других многогранников</h2>
+  <div class="card-grid">
+    <div class="card">
+      <svg viewBox="0 0 175 155">
+        <g stroke="#7dd3fc" stroke-width="1.6" fill="none" opacity=".85">
+          <line x1="35" y1="125" x2="135" y2="125"/>
+          <line x1="35" y1="125" x2="95" y2="88" stroke-dasharray="4 4"/>
+          <line x1="135" y1="125" x2="95" y2="88" stroke-dasharray="4 4"/>
+          <line x1="35" y1="125" x2="85" y2="20"/>
+          <line x1="135" y1="125" x2="85" y2="20"/>
+          <line x1="95" y1="88" x2="85" y2="20"/>
+        </g>
+        <polygon points="60,72.5 110,72.5 90,54" fill="rgba(251,146,60,.35)" stroke="#fb923c" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="60" cy="72.5" r="3" fill="#fb923c"/><circle cx="110" cy="72.5" r="3" fill="#fb923c"/><circle cx="90" cy="54" r="3" fill="#fb923c"/>
+      </svg>
+      <h4>Тетраэдр</h4>
+      <p>У тетраэдра 4 грани, поэтому сечение — <b>треугольник или четырёхугольник</b>. Плоскость, параллельная грани, отсекает подобный ей треугольник.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Призма</h4>
+      <p>Сечение, параллельное основаниям, — <b>равное основанию</b>. Сечение, параллельное боковым рёбрам, — <b>параллелограмм</b>. Наклонная плоскость может дать треугольник, трапецию или пятиугольник (у треугольной призмы — не более 5 сторон).</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Пирамида</h4>
+      <p>Сечение, параллельное основанию n-угольной пирамиды, — подобный ему <b>n-угольник</b>. Плоскость через вершину даёт <b>треугольник</b>. Максимальное число сторон сечения равно числу граней.</p>
+    </div>
+  </div>
+
+  <div class="tip">💡 <b>Главное правило:</b> число сторон сечения не может превышать числа граней многогранника, так как каждая сторона сечения лежит в одной грани, а грань пересекается плоскостью по отрезку не более одного раза (для выпуклых тел).</div>
+
+  <h2 class="sec">Как строят сечения: основные шаги</h2>
+  <div class="steps">
+    <div class="step"><div class="n"></div><div><b>Задать секущую плоскость</b><span>Плоскость однозначно определяется тремя точками, не лежащими на одной прямой (аксиома планиметрии), либо прямой и точкой вне её, либо двумя пересекающимися прямыми.</span></div></div>
+    <div class="step"><div class="n"></div><div><b>Построить следы на гранях</b><span>Если две заданные точки лежат в одной грани, соедините их: отрезок — сторона сечения. Если точки в разных гранях, используйте метод следов или параллельного переноса через вспомогательные прямые.</span></div></div>
+    <div class="step"><div class="n"></div><div><b>Найти точки на рёбрах</b><span>Продолжайте построения, пока прямые не замкнутся в многоугольник. Точки пересечения построенных прямых с рёбрами — вершины сечения.</span></div></div>
+    <div class="step"><div class="n"></div><div><b>Соединить вершины по порядку</b><span>Обойдите грани по кругу и соедините вершины сечения, лежащие в одной грани. Полученный многоугольник — искомое сечение.</span></div></div>
+    <div class="step"><div class="n"></div><div><b>Вычислить площадь</b><span>Найдите стороны сечения (из прямоугольных треугольников или теоремы косинусов) и вычислите площадь: по формулам для известных фигур, методом разбиения или по формуле Герона для треугольников.</span></div></div>
+  </div>
+
+  <h2 class="sec">Сводная таблица</h2>
+  <table class="facts">
+    <tr><th>Многогранник</th><th>Число граней</th><th>Возможные сечения</th><th>Максимум сторон</th></tr>
+    <tr><td>Тетраэдр</td><td>4</td><td>треугольник, четырёхугольник</td><td>4</td></tr>
+    <tr><td>Куб / параллелепипед</td><td>6</td><td>треугольник … шестиугольник</td><td>6</td></tr>
+    <tr><td>Треугольная призма</td><td>5</td><td>треугольник, четырёхугольник, пятиугольник</td><td>5</td></tr>
+    <tr><td>Шестиугольная призма</td><td>8</td><td>от треугольника до восьмиугольника</td><td>8</td></tr>
+    <tr><td>Четырёхугольная пирамида</td><td>5</td><td>треугольник, четырёхугольник, пятиугольник</td><td>5</td></tr>
+    <tr><td>Октаэдр</td><td>8</td><td>от треугольника до восьмиугольника</td><td>8</td></tr>
+  </table>
+</section>
+
+<!-- ================= QUIZ ================= -->
+<section id="page-quiz" class="page">
+  <div class="quiz-head">
+    <h2>✍️ Проверь себя</h2>
+    <div class="score-pill" id="scorePill">Ответьте на вопросы и нажмите «Проверить»</div>
+  </div>
+  <div id="quizBox"></div>
+  <div class="btn-row" style="max-width:520px">
+    <button class="btn primary wide" id="btnCheck">Проверить ответы</button>
+    <button class="btn wide" id="btnReset">Пройти ещё раз</button>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Интерактивный образовательный ресурс «Сечения многогранников» · индивидуальный проект по геометрии · 10 класс · 2026
+</footer>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ----------------------------- TABS ----------------------------- */
+const tabBtns = document.querySelectorAll('.tab-btn');
+tabBtns.forEach(btn => btn.addEventListener('click', () => {
+  tabBtns.forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-' + btn.dataset.page).classList.add('active');
+  if (btn.dataset.page === 'model') onResize();
+}));
+
+/* --------------------------- POLYHEDRA --------------------------- */
+function P(x,y,z){ return new THREE.Vector3(x,y,z); }
+const POLYHEDRA = {
+  cube: {
+    name:'Куб', verts:[P(-1,-1,-1),P(1,-1,-1),P(1,-1,1),P(-1,-1,1),P(-1,1,-1),P(1,1,-1),P(1,1,1),P(-1,1,1)],
+    faces:[[0,1,2,3],[4,7,6,5],[0,4,5,1],[1,5,6,2],[2,6,7,3],[3,7,4,0]]
+  },
+  box: {
+    name:'Параллелепипед', verts:[P(-1.5,-1,-.8),P(1.5,-1,-.8),P(1.5,-1,.8),P(-1.5,-1,.8),P(-1.5,1,-.8),P(1.5,1,-.8),P(1.5,1,.8),P(-1.5,1,.8)],
+    faces:[[0,1,2,3],[4,7,6,5],[0,4,5,1],[1,5,6,2],[2,6,7,3],[3,7,4,0]]
+  },
+  tetra: {
+    name:'Тетраэдр', verts:[P(1,1,1),P(1,-1,-1),P(-1,1,-1),P(-1,-1,1)],
+    faces:[[0,1,2],[0,3,1],[0,2,3],[1,3,2]]
+  },
+  octa: {
+    name:'Октаэдр', verts:[P(1.7,0,0),P(-1.7,0,0),P(0,1.7,0),P(0,-1.7,0),P(0,0,1.7),P(0,0,-1.7)],
+    faces:[[0,2,4],[4,2,1],[1,2,5],[5,2,0],[4,0,3],[3,0,5],[5,1,3],[3,1,4]]
+  },
+  prism3: {
+    name:'Треуг. призма',
+    verts:(()=>{ const v=[]; const r=1.35; for(let i=0;i<3;i++){const a=Math.PI/2+i*2*Math.PI/3; v.push(P(r*Math.cos(a),-1.05,r*Math.sin(a)));} for(let i=0;i<3;i++){const a=Math.PI/2+i*2*Math.PI/3; v.push(P(r*Math.cos(a),1.05,r*Math.sin(a)));} return v; })(),
+    faces:[[0,1,2],[3,5,4],[0,3,4,1],[1,4,5,2],[2,5,3,0]]
+  },
+  prism6: {
+    name:'Шест. призма',
+    verts:(()=>{ const v=[]; const r=1.25; for(let i=0;i<6;i++){const a=i*Math.PI/3; v.push(P(r*Math.cos(a),-1.15,r*Math.sin(a)));} for(let i=0;i<6;i++){const a=i*Math.PI/3; v.push(P(r*Math.cos(a),1.15,r*Math.sin(a)));} return v; })(),
+    faces:(()=>{ const f=[[0,1,2,3,4,5],[6,11,10,9,8,7]]; for(let i=0;i<6;i++){const j=(i+1)%6; f.push([i,j,j+6,i+6]);} return f; })()
+  },
+  pyramid: {
+    name:'Четырёхуг. пирамида',
+    verts:(()=>{ const v=[]; const r=1.45; for(let i=0;i<4;i++){const a=Math.PI/4+i*Math.PI/2; v.push(P(r*Math.cos(a),-1,r*Math.sin(a)));} v.push(P(0,1.7,0)); return v; })(),
+    faces:[[0,1,2,3],[0,4,1],[1,4,2],[2,4,3],[3,4,0]]
+  }
+};
+
+function deriveEdges(faces){
+  const set = new Set(); const edges=[];
+  for(const f of faces){
+    for(let i=0;i<f.length;i++){
+      const a=f[i], b=f[(i+1)%f.length];
+      const key=Math.min(a,b)+'-'+Math.max(a,b);
+      if(!set.has(key)){ set.add(key); edges.push([a,b]); }
+    }
+  }
+  return edges;
+}
+function facesToGeometry(verts, faces){
+  const pos=[];
+  for(const f of faces){
+    for(let i=1;i<f.length-1;i++){
+      pos.push(verts[f[0]].x,verts[f[0]].y,verts[f[0]].z);
+      pos.push(verts[f[i]].x,verts[f[i]].y,verts[f[i]].z);
+      pos.push(verts[f[i+1]].x,verts[f[i+1]].y,verts[f[i+1]].z);
+    }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ------------------------------ SCENE ------------------------------ */
+const container=document.getElementById('scene');
+const renderer=new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.localClippingEnabled=true;
+container.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45, 1, .1, 100);
+camera.position.set(5.2, 3.6, 6.2);
+const controls=new OrbitControls(camera, renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=.08; controls.minDistance=3; controls.maxDistance=20;
+
+scene.add(new THREE.AmbientLight(0xffffff,.55));
+const dir1=new THREE.DirectionalLight(0xffffff,1.4); dir1.position.set(5,8,6); scene.add(dir1);
+const dir2=new THREE.DirectionalLight(0x88aaff,.5); dir2.position.set(-6,-4,-5); scene.add(dir2);
+
+const grid=new THREE.GridHelper(12,24,0x2b3a66,0x1a2444);
+grid.position.y=-2.4; grid.material.transparent=true; grid.material.opacity=.5;
+scene.add(grid);
+
+const polyGroup=new THREE.Group(); scene.add(polyGroup);
+const secGroup=new THREE.Group(); scene.add(secGroup);
+
+let currentKey='cube';
+let theta=55, phi=45, offT=.5;
+let animating=false, spin=false;
+let showHalves=true, showPlaneFlag=true, showLabels=true;
+let polyData=null, halfMeshA=null, halfMeshB=null, planeHelper=null;
+let matA=null, matB=null;
+
+function makeLabelSprite(text){
+  const c=document.createElement('canvas'); c.width=c.height=96;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='rgba(10,14,30,.85)';
+  ctx.beginPath(); ctx.arc(48,48,42,0,7); ctx.fill();
+  ctx.strokeStyle='#fbbf24'; ctx.lineWidth=4; ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='bold 44px Inter, sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text,48,52);
+  const tex=new THREE.CanvasTexture(c);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false}));
+  sp.scale.set(.5,.5,.5);
+  return sp;
+}
+const LETTERS='ABCDEFGHIJKLMNOP';
+
+function buildPoly(key){
+  while(polyGroup.children.length){
+    const ch=polyGroup.children.pop();
+    ch.geometry && ch.geometry.dispose();
+    ch.material && (Array.isArray(ch.material)?ch.material:ch.material).dispose && (Array.isArray(ch.material)?ch.material:[ch.material]).forEach(m=>m.dispose&&m.dispose());
+  }
+  const def=POLYHEDRA[key];
+  polyData={verts:def.verts, edges:deriveEdges(def.faces), faces:def.faces, name:def.name};
+
+  const geo=facesToGeometry(def.verts, def.faces);
+  matA=new THREE.MeshStandardMaterial({color:0x38bdf8, transparent:true, opacity:.5, side:THREE.DoubleSide, roughness:.4, metalness:.1, depthWrite:false});
+  matB=new THREE.MeshStandardMaterial({color:0xa78bfa, transparent:true, opacity:.5, side:THREE.DoubleSide, roughness:.4, metalness:.1, depthWrite:false});
+  halfMeshA=new THREE.Mesh(geo,matA);
+  halfMeshB=new THREE.Mesh(geo.clone(),matB);
+  polyGroup.add(halfMeshA, halfMeshB);
+
+  const epos=[];
+  for(const [a,b] of polyData.edges){
+    epos.push(def.verts[a].x,def.verts[a].y,def.verts[a].z, def.verts[b].x,def.verts[b].y,def.verts[b].z);
+  }
+  const eg=new THREE.BufferGeometry();
+  eg.setAttribute('position', new THREE.Float32BufferAttribute(epos,3));
+  polyGroup.add(new THREE.LineSegments(eg, new THREE.LineBasicMaterial({color:0xdbe7ff})));
+
+  const dotGeo=new THREE.SphereGeometry(.055,16,16);
+  const dotMat=new THREE.MeshBasicMaterial({color:0xffffff});
+  def.verts.forEach((v,i)=>{
+    const dot=new THREE.Mesh(dotGeo,dotMat); dot.position.copy(v); polyGroup.add(dot);
+    const lb=makeLabelSprite(LETTERS[i] ?? String(i));
+    lb.position.copy(v.clone().multiplyScalar(1.12));
+    lb.userData.isLabel=true; lb.visible=showLabels;
+    polyGroup.add(lb);
+  });
+
+  planeHelper=new THREE.Mesh(
+    new THREE.PlaneGeometry(7,7),
+    new THREE.MeshBasicMaterial({color:0xfbbf24, transparent:true, opacity:.07, side:THREE.DoubleSide, depthWrite:false})
+  );
+  planeHelper.visible=showPlaneFlag;
+  polyGroup.add(planeHelper);
+
+  updatePlane();
+}
+
+/* ------------------------- SECTION MATH ------------------------- */
+function planeNormal(th,ph){
+  const t=th*Math.PI/180, p=ph*Math.PI/180;
+  return new THREE.Vector3(Math.sin(t)*Math.cos(p), Math.cos(t), Math.sin(t)*Math.sin(p)).normalize();
+}
+const NAMES={3:'Треугольник',4:'Четырёхугольник',5:'Пятиугольник',6:'Шестиугольник',7:'Семиугольник',8:'Восьмиугольник'};
+
+function computeSection(verts, edges, n, d){
+  const eps=1e-6; const pts=[];
+  for(const [i,j] of edges){
+    const a=verts[i], b=verts[j];
+    const fa=a.dot(n)-d, fb=b.dot(n)-d;
+    if(Math.abs(fa)<eps && Math.abs(fb)<eps) continue;
+    if((fa>eps&&fb<-eps)||(fa<-eps&&fb>eps)){
+      const t=fa/(fa-fb);
+      pts.push(a.clone().lerp(b,t));
+    } else if(Math.abs(fa)<eps){ pts.push(a.clone()); }
+    else if(Math.abs(fb)<eps){ pts.push(b.clone()); }
+  }
+  // dedupe
+  const uniq=[];
+  for(const p of pts){
+    if(!uniq.some(q=>q.distanceTo(p)<1e-4)) uniq.push(p);
+  }
+  if(uniq.length<3) return null;
+  const c=uniq.reduce((s,p)=>s.add(p), new THREE.Vector3()).multiplyScalar(1/uniq.length);
+  let u=new THREE.Vector3(0,1,0).cross(n);
+  if(u.lengthSq()<1e-6) u=new THREE.Vector3(1,0,0).cross(n);
+  u.normalize(); const v=new THREE.Vector3().crossVectors(n,u).normalize();
+  const data2d=uniq.map(p=>{
+    const q=p.clone().sub(c);
+    return {p, x:q.dot(u), y:q.dot(v), a:Math.atan2(q.dot(v), q.dot(u))};
+  });
+  data2d.sort((A,B)=>A.a-B.a);
+  return {points:data2d.map(o=>o.p), coords:data2d, center:c, u, v};
+}
+
+let secMesh=null, secOutline=null;
+function clearSection(){
+  if(secMesh){ secGroup.remove(secMesh); secMesh.geometry.dispose(); secMesh=null; }
+  if(secOutline){ secGroup.remove(secOutline); secOutline.geometry.dispose(); secOutline.material.dispose(); secOutline=null; }
+}
+
+const secNameEl=document.getElementById('secName');
+const secInfoEl=document.getElementById('secInfo');
+
+function updatePlane(){
+  if(!polyData) return;
+  const n=planeNormal(theta,phi);
+  const projs=polyData.verts.map(v=>v.dot(n));
+  const minP=Math.min(...projs), maxP=Math.max(...projs);
+  const margin=(maxP-minP)*0.008+1e-4;
+  const d=minP+margin+(maxP-minP-2*margin)*offT;
+
+  matA.clippingPlanes=[new THREE.Plane(n.clone(), -d)];
+  matB.clippingPlanes=[new THREE.Plane(n.clone().negate(), d)];
+  halfMeshA.visible=showHalves; halfMeshB.visible=showHalves;
+
+  planeHelper.position.copy(n.clone().multiplyScalar(d));
+  planeHelper.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), n);
+  planeHelper.visible=showPlaneFlag;
+
+  clearSection();
+  const sec=computeSection(polyData.verts, polyData.edges, n, d);
+  if(!sec){
+    secNameEl.textContent='Нет сечения';
+    secInfoEl.textContent='Плоскость не пересекает многогранник';
+    return;
+  }
+  const geo=new THREE.BufferGeometry();
+  const pos=[]; const c=sec.center;
+  for(let i=0;i<sec.points.length;i++){
+    const p1=sec.points[i], p2=sec.points[(i+1)%sec.points.length];
+    pos.push(c.x,c.y,c.z, p1.x,p1.y,p1.z, p2.x,p2.y,p2.z);
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  geo.computeVertexNormals();
+  secMesh=new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color:0xfbbf24, side:THREE.DoubleSide, transparent:true, opacity:.92,
+    roughness:.35, metalness:.15, emissive:0x9a6200, emissiveIntensity:.45
+  }));
+  secGroup.add(secMesh);
+
+  const opos=[];
+  sec.points.forEach(p=>opos.push(p.x,p.y,p.z));
+  const og=new THREE.BufferGeometry();
+  og.setAttribute('position', new THREE.Float32BufferAttribute(opos,3));
+  secOutline=new THREE.LineLoop(og, new THREE.LineBasicMaterial({color:0xfff3cf}));
+  secGroup.add(secOutline);
+
+  // info
+  const k=sec.points.length;
+  let per=0;
+  for(let i=0;i<k;i++) per+=sec.points[i].distanceTo(sec.points[(i+1)%k]);
+  let area=0;
+  for(let i=0;i<k;i++){
+    const a2=sec.coords[i], b2=sec.coords[(i+1)%k];
+    area+=a2.x*b2.y-b2.x*a2.y;
+  }
+  area=Math.abs(area)/2;
+  secNameEl.textContent=(NAMES[k]||k+'-угольник');
+  secInfoEl.innerHTML=`${polyData.name} · вершин сечения: <b style="color:#e8edf7">${k}</b><br>периметр ≈ <b style="color:#e8edf7">${per.toFixed(2)}</b> · площадь ≈ <b style="color:#e8edf7">${area.toFixed(2)}</b> (ед.²)`;
+}
+
+/* --------------------------- UI BINDINGS --------------------------- */
+const solidBtns=document.getElementById('solidBtns');
+Object.entries(POLYHEDRA).forEach(([key,def])=>{
+  const b=document.createElement('button');
+  b.textContent=def.name; b.dataset.key=key;
+  if(key===currentKey) b.classList.add('active');
+  b.addEventListener('click',()=>{
+    solidBtns.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentKey=key; buildPoly(key);
+  });
+  solidBtns.appendChild(b);
+});
+
+const slTheta=document.getElementById('slTheta'), slPhi=document.getElementById('slPhi'), slOff=document.getElementById('slOff');
+const valTheta=document.getElementById('valTheta'), valPhi=document.getElementById('valPhi'), valOff=document.getElementById('valOff');
+function syncLabels(){
+  valTheta.textContent=theta+'°'; valPhi.textContent=phi+'°'; valOff.textContent=Math.round(offT*100)+'%';
+}
+slTheta.addEventListener('input',e=>{theta=+e.target.value; syncLabels(); updatePlane();});
+slPhi.addEventListener('input',e=>{phi=+e.target.value; syncLabels(); updatePlane();});
+slOff.addEventListener('input',e=>{offT=+e.target.value/1000; syncLabels(); updatePlane();});
+
+document.getElementById('tgHalves').addEventListener('change',e=>{showHalves=e.target.checked; updatePlane();});
+document.getElementById('tgPlane').addEventListener('change',e=>{showPlaneFlag=e.target.checked; updatePlane();});
+document.getElementById('tgLabels').addEventListener('change',e=>{
+  showLabels=e.target.checked;
+  polyGroup.children.forEach(ch=>{ if(ch.userData && ch.userData.isLabel) ch.visible=showLabels; });
+});
+document.getElementById('tgSpin').addEventListener('change',e=>{spin=e.target.checked; controls.autoRotate=spin; controls.autoRotateSpeed=1.6;});
+
+document.getElementById('btnCenter').addEventListener('click',()=>{
+  offT=.5; slOff.value=500; syncLabels(); updatePlane();
+});
+document.getElementById('btnRandom').addEventListener('click',()=>{
+  theta=Math.round(Math.random()*180); phi=Math.round(Math.random()*360);
+  offT=.2+Math.random()*.6;
+  slTheta.value=theta; slPhi.value=phi; slOff.value=Math.round(offT*1000);
+  syncLabels(); updatePlane();
+});
+const btnAnim=document.getElementById('btnAnimate');
+btnAnim.addEventListener('click',()=>{
+  animating=!animating;
+  btnAnim.textContent=animating?'⏸ Остановить анимацию':'▶ Анимировать плоскость';
+  btnAnim.classList.toggle('primary', !animating);
+});
+
+/* ----------------------------- LOOP ----------------------------- */
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  if(animating){
+    const t=clock.getElapsedTime();
+    offT=.5+.42*Math.sin(t*.7);
+    slOff.value=Math.round(offT*1000);
+    syncLabels(); updatePlane();
+  }
+  controls.update();
+  renderer.render(scene,camera);
+}
+function onResize(){
+  const w=container.clientWidth||600, h=container.clientHeight||560;
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w,h);
+}
+window.addEventListener('resize', onResize);
+new ResizeObserver(onResize).observe(container);
+
+syncLabels();
+buildPoly(currentKey);
+onResize();
+animate();
+
+/* ----------------------------- QUIZ ----------------------------- */
+const QUESTIONS=[
+  {q:'Какое максимальное число вершин может иметь сечение куба?',
+   opts:['4','5','6','8'], correct:2,
+   ex:'Сечение пересекает каждую грань не более чем по одному отрезку. У куба 6 граней, значит максимум — шестиугольник.'},
+  {q:'Какая фигура НЕ может быть сечением куба?',
+   opts:['Треугольник','Пятиугольник','Семиугольник','Трапеция'], correct:2,
+   ex:'У куба всего 6 граней, поэтому сечение не может иметь 7 сторон.'},
+  {q:'Может ли сечение куба быть правильным шестиугольником?',
+   opts:['Да, если плоскость проходит через середины шести рёбер','Нет, никогда','Да, только если плоскость параллельна грани','Только для нестандартного куба'], correct:0,
+   ex:'Плоскость, проходящая через центр куба и середины шести рёбер, даёт правильный шестиугольник.'},
+  {q:'Сколько точек нужно задать, чтобы однозначно определить секущую плоскость?',
+   opts:['Одну','Две','Три любые','Три, не лежащие на одной прямой'], correct:3,
+   ex:'Это следует из аксиомы стереометрии: через три точки, не лежащие на одной прямой, проходит единственная плоскость.'},
+  {q:'Каким НЕ может быть сечение тетраэдра?',
+   opts:['Треугольник','Четырёхугольник','Пятиугольник','Равносторонний треугольник'], correct:2,
+   ex:'У тетраэдра 4 грани, поэтому сечение имеет не более 4 сторон.'},
+  {q:'Плоскость сечения параллельна основанию четырёхугольной пирамиды. Какое сечение получится?',
+   opts:['Прямоугольник','Четырёхугольник, подобный основанию','Трапеция','Произвольный четырёхугольник'], correct:1,
+   ex:'При параллельном сечении соответствующие стороны пропорциональны, а углы равны — получается фигура, подобная основанию.'},
+  {q:'Сечение треугольной призмы наклонной плоскостью может иметь максимум…',
+   opts:['3 стороны','4 стороны','5 сторон','6 сторон'], correct:2,
+   ex:'У треугольной призмы 5 граней, поэтому максимальное число сторон сечения — 5 (пятиугольник).'}
+];
+
+const quizBox=document.getElementById('quizBox');
+const scorePill=document.getElementById('scorePill');
+QUESTIONS.forEach((item,i)=>{
+  const div=document.createElement('div'); div.className='q'; div.id='q'+i;
+  let optsHtml=item.opts.map((o,j)=>
+    `<label><input type="radio" name="q${i}" value="${j}">${o}</label>`).join('');
+  div.innerHTML=`<div class="qt"><span class="mark"></span><span class="num">В${i+1}.</span>${item.q}</div>
+    <div class="opts">${optsHtml}</div>
+    <div class="expl"><b>Пояснение:</b> ${item.ex}</div>`;
+  quizBox.appendChild(div);
+});
+
+document.getElementById('btnCheck').addEventListener('click',()=>{
+  let score=0, answered=0;
+  QUESTIONS.forEach((item,i)=>{
+    const el=document.getElementById('q'+i);
+    const sel=el.querySelector('input:checked');
+    el.classList.remove('correct','wrong','answered');
+    el.querySelector('.mark').textContent='';
+    if(!sel){ return; }
+    answered++;
+    const val=+sel.value;
+    el.classList.add('answered');
+    if(val===item.correct){ score++; el.classList.add('correct'); el.querySelector('.mark').textContent='✓ верно'; }
+    else{ el.classList.add('wrong'); el.querySelector('.mark').textContent='✗ верно: «'+item.opts[item.correct]+'»'; }
+  });
+  const msg = answered<QUESTIONS.length
+    ? `Отвечено ${answered} из ${QUESTIONS.length} — есть пропущенные вопросы`
+    : `Результат: ${score} из ${QUESTIONS.length} — ` + (score===QUESTIONS.length?'идеально! 🏆': score>=QUESTIONS.length-2?'отличный результат! 🎉': score>=Math.ceil(QUESTIONS.length/2)?'хорошо, но можно лучше 💪':'стоит повторить теорию 📖');
+  scorePill.textContent=msg;
+  scorePill.style.color='var(--accent)';
+});
+
+document.getElementById('btnReset').addEventListener('click',()=>{
+  QUESTIONS.forEach((item,i)=>{
+    const el=document.getElementById('q'+i);
+    el.classList.remove('correct','wrong','answered');
+    el.querySelector('.mark').textContent='';
+    el.querySelectorAll('input').forEach(r=>r.checked=false);
+  });
+  scorePill.textContent='Ответьте на вопросы и нажмите «Проверить»';
+  scorePill.style.color='';
+});
+</script>
+</body>
+</html>
